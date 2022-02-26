@@ -1,15 +1,13 @@
 package top.canyie.magiskkiller;
 
+import android.app.Activity;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.TextView;
 
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.appcompat.widget.Toolbar;
-
 import static top.canyie.magiskkiller.MagiskKiller.*;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends Activity {
     private Thread checkThread;
     private String found, notFound;
 
@@ -17,8 +15,6 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        Toolbar toolbar = findViewById(R.id.toolbar);
-        setSupportActionBar(toolbar);
 
         var progressBar = findViewById(R.id.progress);
         TextView status = findViewById(R.id.status);
