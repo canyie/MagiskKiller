@@ -1,0 +1,13 @@
+<resources>
+    <string name="app_name" translatable="false">Magisk Killer</string>
+    <string name="riru" translatable="false">Riru: %s</string>
+    <string name="bootloader" translatable="false">Bootloader: %s</string>
+    <string name="tracer">Tracer (usually means MagiskHide): %s</string>
+    <string name="resetprop">Properties modified by Magisk: %s</string>
+    <string name="found">Found</string>
+    <string name="not_found">Not found</string>
+    <string name="locked">locked</string>
+    <string name="unlocked">unlocked</string>
+    <string name="self_signed">locked but device is running a self-signed ROM</string>
+    <string name="about">\n\nAbout: \nThis application detects Magisk but just want to tell you that Magisk v23.0 was buggy, applications can easily detect Magisk so you should update it. Update Magisk to v24 can pass all detections.\nAuthor: GitHub @canyie\nSource code: https://github.com/canyie/MagiskKiller</string>
+</resources>

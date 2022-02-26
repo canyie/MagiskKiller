@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Magisk Killer</string>
+    <string name="tracer">调试器（通常表示 MagiskHide）：%s</string>
+    <string name="resetprop">被 Magisk 修改的系统属性：%s</string>
+    <string name="found">找到</string>
+    <string name="not_found">未找到</string>
+    <string name="unlocked">已解锁</string>
+    <string name="locked">已锁定</string>
+    <string name="self_signed">已锁定，但设备正在运行自签名系统</string>
+    <string name="about">\n\n关于：\n此应用程序检测 Magisk 但只是为了告诉你 Magisk v23.0 有非常多的 bug，应用程序可以轻易检测到 Magisk 所以你应该升级它。更新到 Magisk v24+ 就能通过所有检测。\n作者：GitHub @canyie\n开源地址：https://github.com/canyie/MagiskKiller</string>
+</resources>
