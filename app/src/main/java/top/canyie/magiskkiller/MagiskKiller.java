@@ -136,27 +136,29 @@ public class MagiskKiller {
             {
                 PropArea exportedDefault = new PropArea("exported2_default_prop");
                 var values = exportedDefault.findPossibleValues("ro.boot.verifiedbootstate");
+                // ro properties are read-only, multiple values found = the property has been modified by resetprop
                 if (values.size() > 1) {
                     result |= FOUND_RESETPROP;
-                    for (String value : values) {
-                        if ("orange".equals(value)) {
-                            result |= FOUND_BOOTLOADER_UNLOCKED;
-                            result &= ~FOUND_BOOTLOADER_SELF_SIGNED;
-                        } else if ("yellow".equals(value) && (result & FOUND_BOOTLOADER_UNLOCKED) == 0) {
-                            result |= FOUND_BOOTLOADER_SELF_SIGNED;
-                        }
+                }
+                for (String value : values) {
+                    if ("orange".equals(value)) {
+                        result |= FOUND_BOOTLOADER_UNLOCKED;
+                        result &= ~FOUND_BOOTLOADER_SELF_SIGNED;
+                    } else if ("yellow".equals(value) && (result & FOUND_BOOTLOADER_UNLOCKED) == 0) {
+                        result |= FOUND_BOOTLOADER_SELF_SIGNED;
                     }
                 }
 
                 values = exportedDefault.findPossibleValues("ro.boot.vbmeta.device_state");
                 if (values.size() > 1) {
                     result |= FOUND_RESETPROP;
-                    for (String value : values)
-                        if ("unlocked".equals(value)) {
-                            result |= FOUND_BOOTLOADER_UNLOCKED;
-                            result &= ~FOUND_BOOTLOADER_SELF_SIGNED;
-                            break;
-                        }
+                }
+                for (String value : values) {
+                    if ("unlocked".equals(value)) {
+                        result |= FOUND_BOOTLOADER_UNLOCKED;
+                        result &= ~FOUND_BOOTLOADER_SELF_SIGNED;
+                        break;
+                    }
                 }
             }
 
@@ -170,11 +172,13 @@ public class MagiskKiller {
                 var values = exportedDalvik.findPossibleValues("ro.dalvik.vm.native.bridge");
                 if (values.size() > 1) {
                     result |= FOUND_RESETPROP;
-                    for (String value : values)
-                        if ("libriruloader.so".equals(value)) {
-                            result |= FOUND_RIRU;
-                            break;
-                        }
+                }
+
+                for (String value : values) {
+                    if ("libriruloader.so".equals(value)) {
+                        result |= FOUND_RIRU;
+                        break;
+                    }
                 }
             }
         } catch (IOException e) {
