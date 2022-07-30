@@ -133,56 +133,62 @@ public class MagiskKiller {
     public static int detectProperties() {
         int result = 0;
         try {
-            {
-                PropArea exportedDefault = new PropArea("exported2_default_prop");
-                var values = exportedDefault.findPossibleValues("ro.boot.verifiedbootstate");
-                // ro properties are read-only, multiple values found = the property has been modified by resetprop
-                if (values.size() > 1) {
-                    result |= FOUND_RESETPROP;
-                }
-                for (String value : values) {
-                    if ("orange".equals(value)) {
-                        result |= FOUND_BOOTLOADER_UNLOCKED;
-                        result &= ~FOUND_BOOTLOADER_SELF_SIGNED;
-                    } else if ("yellow".equals(value) && (result & FOUND_BOOTLOADER_UNLOCKED) == 0) {
-                        result |= FOUND_BOOTLOADER_SELF_SIGNED;
-                    }
-                }
-
-                values = exportedDefault.findPossibleValues("ro.boot.vbmeta.device_state");
-                if (values.size() > 1) {
-                    result |= FOUND_RESETPROP;
-                }
-                for (String value : values) {
-                    if ("unlocked".equals(value)) {
-                        result |= FOUND_BOOTLOADER_UNLOCKED;
-                        result &= ~FOUND_BOOTLOADER_SELF_SIGNED;
-                        break;
-                    }
-                }
-            }
-
-            {
-                PropArea exportedDalvik;
-                try {
-                    exportedDalvik = new PropArea("exported_dalvik_prop");
-                } catch (Exception e) {
-                    exportedDalvik = new PropArea("dalvik_prop");
-                }
-                var values = exportedDalvik.findPossibleValues("ro.dalvik.vm.native.bridge");
-                if (values.size() > 1) {
-                    result |= FOUND_RESETPROP;
-                }
-
-                for (String value : values) {
-                    if ("libriruloader.so".equals(value)) {
-                        result |= FOUND_RIRU;
-                        break;
-                    }
-                }
-            }
-        } catch (IOException e) {
+            result = detectBootloaderProperties();
+            result |= detectDalvikConfigProperties();
+        } catch (Exception e) {
             Log.e(TAG, "Failed to check props", e);
+        }
+        return result;
+    }
+
+    private static int detectBootloaderProperties() {
+        int result = 0;
+        // The better way to get the filename would be `getprop -Z`
+        // But "-Z" option requires Android 7.0+, and I'm lazy to implement it
+        PropArea bootloader = PropArea.any("bootloader_prop", "exported2_default_prop", "default_prop");
+        if (bootloader == null) return 0;
+        var values = bootloader.findPossibleValues("ro.boot.verifiedbootstate");
+        // ro properties are read-only, multiple values found = the property has been modified by resetprop
+        if (values.size() > 1) {
+            result |= FOUND_RESETPROP;
+        }
+        for (String value : values) {
+            if ("orange".equals(value)) {
+                result |= FOUND_BOOTLOADER_UNLOCKED;
+                result &= ~FOUND_BOOTLOADER_SELF_SIGNED;
+            } else if ("yellow".equals(value) && (result & FOUND_BOOTLOADER_UNLOCKED) == 0) {
+                result |= FOUND_BOOTLOADER_SELF_SIGNED;
+            }
+        }
+
+        values = bootloader.findPossibleValues("ro.boot.vbmeta.device_state");
+        if (values.size() > 1) {
+            result |= FOUND_RESETPROP;
+        }
+        for (String value : values) {
+            if ("unlocked".equals(value)) {
+                result |= FOUND_BOOTLOADER_UNLOCKED;
+                result &= ~FOUND_BOOTLOADER_SELF_SIGNED;
+                break;
+            }
+        }
+        return result;
+    }
+
+    private static int detectDalvikConfigProperties() {
+        int result = 0;
+        PropArea dalvikConfig = PropArea.any("dalvik_config_prop", "exported_dalvik_prop", "dalvik_prop");
+        if (dalvikConfig == null) return 0;
+        var values = dalvikConfig.findPossibleValues("ro.dalvik.vm.native.bridge");
+        if (values.size() > 1) {
+            result |= FOUND_RESETPROP;
+        }
+
+        for (String value : values) {
+            if ("libriruloader.so".equals(value)) {
+                result |= FOUND_RIRU;
+                break;
+            }
         }
         return result;
     }

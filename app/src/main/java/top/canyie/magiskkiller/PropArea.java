@@ -4,6 +4,7 @@ import android.util.Log;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -22,10 +23,23 @@ public class PropArea {
     private ByteBuffer data;
     private int byteUsed;
 
+    public static PropArea any(String... areas) {
+        for (String area : areas) {
+            try {
+                return new PropArea(area);
+            } catch (FileNotFoundException ignored) {
+                // Ignore and try the next
+            } catch (IOException e) {
+                throw new RuntimeException("open " + area, e);
+            }
+        }
+        return null;
+    }
+
     public PropArea(String area) throws IOException {
         area = "/dev/__properties__/u:object_r:" + area + ":s0";
         File file = new File(area);
-        if (!file.isFile()) throw new IllegalArgumentException("Not a file: " + area);
+        if (!file.isFile()) throw new FileNotFoundException("Not a file: " + area);
         long size = file.length();
         if (size <= 0 || size >= 0x7fffffffL) throw new IllegalArgumentException("invalid file size " + size);
 
