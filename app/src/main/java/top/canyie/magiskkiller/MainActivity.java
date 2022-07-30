@@ -8,6 +8,7 @@ import android.widget.TextView;
 import static top.canyie.magiskkiller.MagiskKiller.*;
 
 public class MainActivity extends Activity {
+    private static boolean inited;
     private Thread checkThread;
     private String found, notFound;
 
@@ -24,7 +25,11 @@ public class MainActivity extends Activity {
         notFound = getString(R.string.not_found);
 
         checkThread = new Thread(() -> {
-            int result = MagiskKiller.detect();
+            if (!inited) {
+                inited = true;
+                MagiskKiller.loadNativeLibrary();
+            }
+            int result = MagiskKiller.detect(getApplicationInfo().sourceDir);
             runOnUiThread(() -> {
                 StringBuilder sb = new StringBuilder();
                 sb.append(resolveString(R.string.tracer, result, FOUND_TRACER));

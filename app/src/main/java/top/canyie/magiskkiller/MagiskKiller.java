@@ -3,12 +3,13 @@ package top.canyie.magiskkiller;
 import android.os.ParcelFileDescriptor;
 import android.os.Process;
 import android.os.SystemClock;
+import android.system.Os;
 import android.util.Log;
 
 import java.io.BufferedReader;
 import java.io.Closeable;
 import java.io.DataInputStream;
-import java.io.DataOutputStream;
+import java.io.FileDescriptor;
 import java.io.FileInputStream;
 import java.io.FileReader;
 import java.io.IOException;
@@ -36,12 +37,12 @@ public class MagiskKiller {
     /** Some system properties are modified by resetprop (a tool provided by Magisk) */
     public static final int FOUND_RESETPROP = 1 << 4;
 
-    static {
+    public static void loadNativeLibrary() {
         System.loadLibrary("safetychecker");
     }
 
-    public static int detect() {
-        var detectTracerTask = detectTracer();
+    public static int detect(String apk) {
+        var detectTracerTask = detectTracer(apk);
         int result;
         result = detectProperties();
 
@@ -58,62 +59,43 @@ public class MagiskKiller {
         return result;
     }
 
-    public static Callable<Integer> detectTracer() {
-        // Create pipe to communicate with the child process
-        ParcelFileDescriptor[] pipe;
+    public static int requestTrace() {
+        // Change process name so magiskd would think we're zygote and attach us
         try {
-            pipe = ParcelFileDescriptor.createPipe();
-        } catch (IOException e) {
-            throw new RuntimeException("create pipe", e);
+            Method setArgV0 = Process.class.getDeclaredMethod("setArgV0", String.class);
+            setArgV0.setAccessible(true);
+            setArgV0.invoke(null, "zygote");
+        } catch (Exception e) {
+            throw new RuntimeException("change process name", e);
         }
 
-        var read = pipe[0];
-        var write = pipe[1];
+        // Touch app_process and trigger inotify
+        try (FileInputStream fis = new FileInputStream("/system/bin/app_process")) {
+            fis.read();
+        } catch (IOException e) {
+            throw new RuntimeException("touch app_process", e);
+        }
 
+        // Wait magiskd received inotify event and trace us
+        SystemClock.sleep(2000);
+
+        // Read the tracer process from /proc/self/status
+        return getTracer();
+    }
+
+    public static Callable<Integer> detectTracer(String apk) {
         // Magisk Hide will attach processes with name=zygote/zygote64 and ppid=1
         // Orphan processes will have PPID=1
-        int pid = forkOrphan(read.getFd(), write.getFd());
+        // The return value is the pipe to communicate with the child process
+        int rawReadFd = forkOrphan(apk);
 
-        if (pid < 0) throw new RuntimeException("fork failed");
-
-        if (pid == 0) {
-            closeQuietly(read);
-
-            // Change process name so magiskd would think we're zygote and attach us
-            try {
-                Method setArgV0 = Process.class.getDeclaredMethod("setArgV0", String.class);
-                setArgV0.setAccessible(true);
-                setArgV0.invoke(null, "zygote");
-            } catch (Exception e) {
-                throw new RuntimeException("change process name", e);
+        if (rawReadFd < 0) throw new RuntimeException("fork failed");
+        var readFd = ParcelFileDescriptor.adoptFd(rawReadFd);
+        return () -> {
+            try (DataInputStream fis = new DataInputStream(new ParcelFileDescriptor.AutoCloseInputStream(readFd))) {
+                return Integer.parseInt(fis.readUTF());
             }
-
-            // Touch app_process and trigger inotify
-            try (FileInputStream fis = new FileInputStream("/system/bin/app_process")) {
-                fis.read();
-            } catch (IOException e) {
-                throw new RuntimeException("touch app_process", e);
-            }
-
-            // Wait magiskd received inotify event and trace us
-            SystemClock.sleep(2000);
-
-            // Read the tracer process from /proc/self/status and send it back
-            try (DataOutputStream fos = new DataOutputStream(new ParcelFileDescriptor.AutoCloseOutputStream(write))) {
-                fos.writeUTF(Integer.toString(getTracer()));
-            } catch (IOException e) {
-                throw new RuntimeException("write tracer pid", e);
-            }
-            System.exit(0);
-            throw new RuntimeException("Unreachable");
-        } else {
-            closeQuietly(write);
-            return () -> {
-                try (DataInputStream fis = new DataInputStream(new ParcelFileDescriptor.AutoCloseInputStream(read))) {
-                    return Integer.parseInt(fis.readUTF());
-                }
-            };
-        }
+        };
     }
 
     public static int getTracer() {
@@ -200,5 +182,12 @@ public class MagiskKiller {
             } catch (IOException ignored) {}
     }
 
-    private static native int forkOrphan(int readFd, int writeFd);
+    private static void closeQuietly(FileDescriptor fd) {
+        if (fd != null)
+            try {
+                Os.close(fd);
+            } catch (Exception ignored) {}
+    }
+
+    private static native int forkOrphan(String apk);
 }
