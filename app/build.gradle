@@ -3,9 +3,13 @@ apply plugin: 'com.android.application'
 android {
     compileSdkVersion 32
     buildToolsVersion "32.0.0"
-    ndkVersion '23.1.7779620'
+    ndkVersion '25.0.8775105'
     defaultConfig {
         applicationId "top.canyie.magiskkiller"
+
+        // The same method can be used on older Android (may need a bit of structure changes)
+        // But hiding root on pre-Nougat (7.0) Android is meaningless since /proc is world-readable
+        // On those devices, apps can simply check if there is a process named "magiskd"
         minSdkVersion 21
         targetSdkVersion 32
         versionCode 1
