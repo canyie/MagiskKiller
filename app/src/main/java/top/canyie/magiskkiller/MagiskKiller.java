@@ -9,6 +9,7 @@ import android.util.Log;
 import java.io.BufferedReader;
 import java.io.Closeable;
 import java.io.DataInputStream;
+import java.io.File;
 import java.io.FileDescriptor;
 import java.io.FileInputStream;
 import java.io.FileReader;
@@ -37,6 +38,9 @@ public class MagiskKiller {
     /** Some system properties are modified by resetprop (a tool provided by Magisk) */
     public static final int FOUND_RESETPROP = 1 << 4;
 
+    /** Found active `magisk su` session (the detection method used by HSBC app) */
+    public static final int FOUND_MAGISK_PTS = 1 << 5;
+
     public static void loadNativeLibrary() {
         System.loadLibrary("safetychecker");
     }
@@ -45,6 +49,7 @@ public class MagiskKiller {
         var detectTracerTask = detectTracer(apk);
         int result;
         result = detectProperties();
+        result |= detectMagiskPts();
 
         int tracer;
         try {
@@ -173,6 +178,40 @@ public class MagiskKiller {
             }
         }
         return result;
+    }
+
+    // Scan /dev/pts and check if there is a magisk pts alive
+    // Use `magisk su` to open a root session to test it
+    private static int detectMagiskPts() {
+        Method getFileContext;
+        try {
+            getFileContext = Class.forName("android.os.SELinux")
+                    .getDeclaredMethod("getFileContext", String.class);
+            getFileContext.setAccessible(true);
+        } catch (Throwable e) {
+            Log.e(TAG, "Failed to reflect getFileContext", e);
+            return 0;
+        }
+
+        // Listing files under /dev/pts is not possible because of SELinux
+        // So we manually recreate the folder structure
+        var basePts = new File("/dev/pts");
+        for (int i = 0;i < 1024;i++) {
+            var cur = new File(basePts, Integer.toString(i));
+
+            // No more pts, break.
+            if (!cur.exists()) break;
+
+            // We found an active pts, check if it has magisk context.
+            try {
+                String ptsContext = (String) getFileContext.invoke(null, cur.getAbsolutePath());
+                if ("u:object_r:magisk_file:s0".equals(ptsContext))
+                    return FOUND_MAGISK_PTS;
+            } catch (Throwable e) {
+                Log.e(TAG, "Failed to check file context of " + cur, e);
+            }
+        }
+        return 0;
     }
 
     private static void closeQuietly(Closeable closeable) {

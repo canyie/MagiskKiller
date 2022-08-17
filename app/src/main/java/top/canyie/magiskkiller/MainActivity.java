@@ -42,6 +42,8 @@ public class MainActivity extends Activity {
                         ? R.string.unlocked : (result & FOUND_BOOTLOADER_SELF_SIGNED) != 0
                         ? R.string.self_signed : R.string.locked;
                 sb.append(getString(R.string.bootloader, getString(bl)));
+                sb.append('\n');
+                sb.append(resolveString(R.string.magisk_pts, result, FOUND_MAGISK_PTS));
                 status.setText(sb);
                 progressBar.setVisibility(View.GONE);
                 status.setVisibility(View.VISIBLE);

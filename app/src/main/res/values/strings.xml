@@ -4,6 +4,7 @@
     <string name="bootloader" translatable="false">Bootloader: %s</string>
     <string name="tracer">Tracer (usually means MagiskHide): %s</string>
     <string name="resetprop">Properties modified by Magisk: %s</string>
+    <string name="magisk_pts">Magisk PTS (active su session): %s</string>
     <string name="found">Found</string>
     <string name="not_found">Not found</string>
     <string name="locked">locked</string>

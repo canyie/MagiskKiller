@@ -4,6 +4,7 @@
     <string name="tracer">调试器（通常表示 MagiskHide）：%s</string>
     <string name="resetprop">被 Magisk 修改的系统属性：%s</string>
     <string name="found">找到</string>
+    <string name="magisk_pts">Magisk PTS (活跃 su 会话)： %s</string>
     <string name="not_found">未找到</string>
     <string name="unlocked">已解锁</string>
     <string name="locked">已锁定</string>
