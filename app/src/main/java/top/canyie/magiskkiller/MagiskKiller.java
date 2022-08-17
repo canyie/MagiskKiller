@@ -1,7 +1,8 @@
 package top.canyie.magiskkiller;
 
+import android.annotation.SuppressLint;
+import android.os.Build;
 import android.os.ParcelFileDescriptor;
-import android.os.Process;
 import android.os.SystemClock;
 import android.system.Os;
 import android.util.Log;
@@ -15,6 +16,7 @@ import java.io.FileInputStream;
 import java.io.FileReader;
 import java.io.IOException;
 import java.lang.reflect.Method;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.Callable;
 
 /**
@@ -65,23 +67,15 @@ public class MagiskKiller {
     }
 
     public static int requestTrace() {
-        // Change process name so magiskd would think we're zygote and attach us
-        try {
-            Method setArgV0 = Process.class.getDeclaredMethod("setArgV0", String.class);
-            setArgV0.setAccessible(true);
-            setArgV0.invoke(null, "zygote");
-        } catch (Exception e) {
-            throw new RuntimeException("change process name", e);
-        }
-
-        // Touch app_process and trigger inotify
+        // Here we are running in the subprocess which has PPID=1 and process name="zygote"
+        // Just in case, touch app_process to trigger inotify monitor (monitored by MagiskHide)
         try (FileInputStream fis = new FileInputStream("/system/bin/app_process")) {
             fis.read();
         } catch (IOException e) {
-            throw new RuntimeException("touch app_process", e);
+            Log.e(TAG, "touch app_process", e);
         }
 
-        // Wait magiskd received inotify event and trace us
+        // Wait magiskd to receive inotify event and trace us
         SystemClock.sleep(2000);
 
         // Read the tracer process from /proc/self/status
@@ -180,35 +174,53 @@ public class MagiskKiller {
         return result;
     }
 
-    // Scan /dev/pts and check if there is a magisk pts alive
+    // Scan /dev/pts and check if there is an alive magisk pts
     // Use `magisk su` to open a root session to test it
+    @SuppressLint({"PrivateApi", "DiscouragedPrivateApi"})
     private static int detectMagiskPts() {
         Method getFileContext;
-        try {
-            getFileContext = Class.forName("android.os.SELinux")
-                    .getDeclaredMethod("getFileContext", String.class);
-            getFileContext.setAccessible(true);
-        } catch (Throwable e) {
-            Log.e(TAG, "Failed to reflect getFileContext", e);
-            return 0;
+
+        // Os.getxattr is available since Oreo, fallback to getFileContext on pre O
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            try {
+                getFileContext = Class.forName("android.os.SELinux")
+                        .getDeclaredMethod("getFileContext", String.class);
+                getFileContext.setAccessible(true);
+            } catch (Throwable e) {
+                Log.e(TAG, "Failed to reflect getFileContext", e);
+                return 0;
+            }
+        } else {
+            getFileContext = null;
         }
 
         // Listing files under /dev/pts is not possible because of SELinux
         // So we manually recreate the folder structure
         var basePts = new File("/dev/pts");
         for (int i = 0;i < 1024;i++) {
-            var cur = new File(basePts, Integer.toString(i));
+            var pts = new File(basePts, Integer.toString(i));
 
             // No more pts, break.
-            if (!cur.exists()) break;
+            if (!pts.exists()) break;
 
             // We found an active pts, check if it has magisk context.
             try {
-                String ptsContext = (String) getFileContext.invoke(null, cur.getAbsolutePath());
+                String ptsContext;
+                if (getFileContext != null) {
+                    ptsContext = (String) getFileContext.invoke(null, pts.getAbsolutePath());
+                } else {
+                    @SuppressLint({"NewApi", "LocalSuppress"})
+                    byte[] raw = Os.getxattr(pts.getAbsolutePath(), "security.selinux");
+                    // Os.getxattr returns the raw data which includes the C-style terminator ('\0')
+                    // We need to manually exclude it
+                    int terminatorIndex = 0;
+                    for (;terminatorIndex < raw.length && raw[terminatorIndex] != 0;terminatorIndex++);
+                    ptsContext = new String(raw, 0, terminatorIndex, StandardCharsets.UTF_8);
+                }
                 if ("u:object_r:magisk_file:s0".equals(ptsContext))
                     return FOUND_MAGISK_PTS;
             } catch (Throwable e) {
-                Log.e(TAG, "Failed to check file context of " + cur, e);
+                Log.e(TAG, "Failed to check file context of " + pts, e);
             }
         }
         return 0;

@@ -2,12 +2,12 @@
 // Created by canyie on 2021/4/24.
 //
 
-#include <string_view>
 #include <cstdlib>
+#include <string_view>
+#include <fcntl.h>
 #include <jni.h>
 #include <unistd.h>
 #include <android/log.h>
-#include <fcntl.h>
 
 #define LOG_TAG "MagiskKiller"
 #define LOGV(...) __android_log_print(ANDROID_LOG_VERBOSE, LOG_TAG, __VA_ARGS__)
@@ -18,7 +18,7 @@
 #define LOGF(...) __android_log_print(ANDROID_LOG_FATAL, LOG_TAG, __VA_ARGS__)
 
 jint SafetyChecker_forkOrphan(JNIEnv* env, jclass, jstring apk) {
-    // After forking we are no longer able to use JNI
+    // After forking we are no longer able to call many functions including JNI
     auto orig_apk_path = env->GetStringUTFChars(apk, nullptr);
     auto apk_path = strdup(orig_apk_path);
     env->ReleaseStringUTFChars(apk, orig_apk_path);
@@ -29,6 +29,10 @@ jint SafetyChecker_forkOrphan(JNIEnv* env, jclass, jstring apk) {
     if (pipe(fd) == -1) return -1;
     int read_fd = fd[0];
     int write_fd = fd[1];
+
+    char tmp[32];
+    snprintf(tmp, sizeof(tmp), "%d", write_fd);
+    auto fd_arg = strdup(tmp);
 
     pid_t pid = fork();
     if (pid < 0) return pid; // fork failed
@@ -43,20 +47,21 @@ jint SafetyChecker_forkOrphan(JNIEnv* env, jclass, jstring apk) {
             close(write_fd);
             abort();
         }
-        // pid == 0, ensure orphan process
+        // pid == 0, make sure we're orphan process (parent died)
         kill(getppid(), SIGKILL);
 
         // After fork we cannot call many functions including JNI (otherwise we may deadlock)
         // Call execl() to recreate runtime and run our checking code
-        char fd_arg[32];
-        snprintf(fd_arg, sizeof(fd_arg), "%d", write_fd);
         setenv("CLASSPATH", apk_path, 1);
         execl("/system/bin/app_process",
               "/system/bin/app_process",
               "/system/bin",
+              // We already have PPID=1, set process name to zygote
+              // MagiskHide will think we're zygote and attach us
+              "--nice-name=zygote",
               "top.canyie.magiskkiller.SubprocessMain",
               "--write-fd",
-              strdup(fd_arg),
+              fd_arg,
               (char*) nullptr);
 
         // execl() only returns if failed
@@ -64,6 +69,7 @@ jint SafetyChecker_forkOrphan(JNIEnv* env, jclass, jstring apk) {
         abort();
     }
     // parent process
+    free(fd_arg);
     free(apk_path);
     close(write_fd);
     return read_fd;
@@ -81,4 +87,3 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* jvm, void*) {
     env->DeleteLocalRef(cls);
     return JNI_VERSION_1_6;
 }
-
