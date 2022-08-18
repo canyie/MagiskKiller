@@ -11,4 +11,8 @@
     <string name="unlocked">unlocked</string>
     <string name="self_signed">locked but device is running a self-signed ROM</string>
     <string name="about">\n\nAbout: \nThis application detects Magisk but just want to tell you that Magisk v23.0 was buggy, applications can easily detect Magisk so you should update it. Update Magisk to v24 can pass all detections.\nAuthor: GitHub @canyie\nSource code: https://github.com/canyie/MagiskKiller</string>
+    <string name="privacy_policy_title">Privacy Policy</string>
+    <string name="privacy_policy">This is a simple app to help you know if your Magisk is properly hidden by MagiskHide.\n\nThis app does not require any permissions.\nAll checks runs locally, and we will not and cannot send any data to the Internet.</string>
+    <string name="accept">Accept</string>
+    <string name="deny">Deny</string>
 </resources>

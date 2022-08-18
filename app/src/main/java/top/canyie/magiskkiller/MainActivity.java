@@ -1,6 +1,7 @@
 package top.canyie.magiskkiller;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.TextView;
@@ -50,7 +51,24 @@ public class MainActivity extends Activity {
                 about.setVisibility(View.VISIBLE);
             });
         });
-        checkThread.start();
+
+        var sp = getSharedPreferences("config", MODE_PRIVATE);
+        if (!sp.contains("agreed_privaty_policy")) {
+            new AlertDialog.Builder(this)
+                    .setTitle(R.string.privacy_policy_title)
+                    .setMessage(R.string.privacy_policy)
+                    .setPositiveButton(R.string.accept, (dialog, i) -> {
+                        sp.edit().putBoolean("agreed_privaty_policy", true).apply();
+                        checkThread.start();
+                    })
+                    .setNegativeButton(R.string.deny, (dialog, i) -> {
+                        finish();
+                    })
+                    .setCancelable(false)
+                    .show();
+        } else {
+            checkThread.start();
+        }
     }
 
     @Override protected void onDestroy() {
