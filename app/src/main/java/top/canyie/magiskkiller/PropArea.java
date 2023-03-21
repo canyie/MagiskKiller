@@ -20,6 +20,14 @@ public class PropArea {
     private static final int PROP_AREA_MAGIC = 0x504f5250;
     private static final int PROP_AREA_VERSION = 0xfc6ed0ab;
 
+    private static final File PROPERTY_FILE = new File("/dev/__properties__");
+
+    /**
+     * On older devices (< 24?), all properties are stored in a single file
+     * Check context_pre_split.h in AOSP for more info
+     */
+    private static final boolean USE_PRE_SPLIT_CONTEXT = PROPERTY_FILE.isFile();
+
     private ByteBuffer data;
     private int byteUsed;
 
@@ -37,13 +45,17 @@ public class PropArea {
     }
 
     public PropArea(String area) throws IOException {
-        area = "/dev/__properties__/u:object_r:" + area + ":s0";
-        File file = new File(area);
-        if (!file.isFile()) throw new FileNotFoundException("Not a file: " + area);
+        File file;
+        if (USE_PRE_SPLIT_CONTEXT) {
+            file = PROPERTY_FILE;
+        } else {
+            file = new File(PROPERTY_FILE, "u:object_r:" + area + ":s0");
+            if (!file.isFile()) throw new FileNotFoundException("Not a file: " + file);
+        }
         long size = file.length();
         if (size <= 0 || size >= 0x7fffffffL) throw new IllegalArgumentException("invalid file size " + size);
 
-        try (FileChannel channel = new FileInputStream(area).getChannel()) {
+        try (FileChannel channel = new FileInputStream(file).getChannel()) {
             data = channel.map(FileChannel.MapMode.READ_ONLY, 0, size).order(ByteOrder.nativeOrder());
         }
 
